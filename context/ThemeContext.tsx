@@ -1,40 +1,55 @@
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DarkTheme, DefaultTheme, Theme } from '@react-navigation/native';
+import {
+  DarkTheme as NavDarkTheme,
+  DefaultTheme as NavDefaultTheme,
+  Theme as NavTheme,
+} from '@react-navigation/native';
 
-type ThemeContextType = {
-  theme: Theme;
-  isDark: boolean;
-  toggleTheme: () => void;
-};
+type ThemeName = 'light' | 'dark';
 
-export const ThemeContext = createContext<ThemeContextType>({
-  theme: DefaultTheme,
-  isDark: false,
-  toggleTheme: () => {},
+interface ThemeContextProps {
+  themeName: ThemeName;
+  navigationTheme: NavTheme;
+  setThemeName: (t: ThemeName) => void;
+}
+
+export const ThemeContext = createContext<ThemeContextProps>({
+  themeName: 'light',
+  navigationTheme: NavDefaultTheme,
+  setThemeName: () => {},
 });
 
-export const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  const [isDark, setIsDark] = useState(false);
+export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [themeName, setThemeNameState] = useState<ThemeName>('light');
+  const STORAGE_KEY = 'theme';
 
   useEffect(() => {
-    const loadTheme = async () => {
-      const stored = await AsyncStorage.getItem('appTheme');
-      if (stored === 'dark') setIsDark(true);
-    };
-    loadTheme();
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem(STORAGE_KEY);
+        if (saved === 'dark' || saved === 'light') {
+          setThemeNameState(saved);
+        }
+      } catch (e) {
+        console.warn('Failed to load theme from storage', e);
+      }
+    })();
   }, []);
 
-  const toggleTheme = async () => {
-    const newValue = !isDark;
-    setIsDark(newValue);
-    await AsyncStorage.setItem('appTheme', newValue ? 'dark' : 'light');
+  const setThemeName = async (newTheme: ThemeName) => {
+    try {
+      setThemeNameState(newTheme);
+      await AsyncStorage.setItem(STORAGE_KEY, newTheme);
+    } catch (e) {
+      console.warn('Failed to save theme', e);
+    }
   };
 
-  const theme = isDark ? DarkTheme : DefaultTheme;
+  const navigationTheme = themeName === 'dark' ? NavDarkTheme : NavDefaultTheme;
 
   return (
-    <ThemeContext.Provider value={{ theme, isDark, toggleTheme }}>
+    <ThemeContext.Provider value={{ themeName, navigationTheme, setThemeName }}>
       {children}
     </ThemeContext.Provider>
   );
